@@ -1,120 +1,94 @@
 import networkx as nx
+import re
+from typing import List, Dict, Any
+from pypdf import PdfReader
+import io
 
-def build_ontology_graph():
+class PDFParser:
     """
-    Builds a robust, production-grade Skill Ontology Directed Acyclic Graph.
-    Edge A -> B implies A is a prerequisite/foundational element for B.
+    Extracts text from uploaded PDF files.
     """
-    g = nx.DiGraph()
-    
-    # Define Nodes with Target Levels (1: Beginner, 2: Intermediate, 3: Advanced)
-    # This simulates a real Enterprise Database of 15k+ skills.
-    skills = {
-        # Frontend Hierarchy
-        "JavaScript": 3,
-        "TypeScript": 3,
-        "React": 3,
-        "Redux/State Management": 2,
-        "Advanced React": 3,
-        "Next.js": 3,
-        # Backend Hierarchy
-        "Node.js": 3,
-        "Python": 3,
-        "SQL/Postgres": 2,
-        "FastAPI": 2,
-        "Distributed Systems": 2,
-        # API & Data
-        "REST APIs": 2,
-        "GraphQL": 3,
-        "gRPC": 2,
-        # DevOps/Infrastructure
-        "Docker": 2,
-        "Kubernetes": 1,
-        "AWS Cloud": 2,
-        "CI/CD Pipelines": 2,
-        # Specialized
-        "System Design": 2,
-        "Microservices Architecture": 3
-    }
-    
-    for skill, level in skills.items():
-        g.add_node(skill, target_level=level)
+    @staticmethod
+    def extract_text(file_content: bytes) -> str:
+        try:
+            reader = PdfReader(io.BytesIO(file_content))
+            text = ""
+            for page in reader.pages:
+                text += page.extract_text()
+            return text
+        except Exception as e:
+            return f"Error parsing PDF: {str(e)}"
 
-    # Establish Prerequisites (Foundations -> Advanced)
-    prereqs = [
-        ("JavaScript", "TypeScript"),
-        ("JavaScript", "React"),
-        ("JavaScript", "Node.js"),
-        ("Python", "FastAPI"),
-        ("React", "Redux/State Management"),
-        ("React", "Advanced React"),
-        ("TypeScript", "Advanced React"),
-        ("Advanced React", "Next.js"),
-        ("Node.js", "Distributed Systems"),
-        ("SQL/Postgres", "Microservices Architecture"),
-        ("Node.js", "Microservices Architecture"),
-        ("REST APIs", "GraphQL"),
-        ("REST APIs", "gRPC"),
-        ("REST APIs", "Next.js"),
-        ("Docker", "Kubernetes"),
-        ("AWS Cloud", "Kubernetes"),
-        ("Distributed Systems", "System Design"),
-        ("Microservices Architecture", "System Design"),
-        ("CI/CD Pipelines", "Next.js")
-    ]
-    g.add_edges_from(prereqs)
-    return g
+class SkillExtractor:
+    """
+    Simulates intelligent parsing by extracting known skills from raw text.
+    In a production app, this would use NLP/LLM.
+    """
+    def __init__(self, known_skills: List[str]):
+        self.known_skills = known_skills
 
-def analyze_gap(resume_data: dict, jd_data: dict):
-    gaps = {}
-    for skill, jd_level in jd_data.items():
-        # Cross-reference with standard ontology first if missing from JD but it's a pre-req
-        res_level = resume_data.get(skill, 0)
-        gap_score = jd_level - res_level
-        if gap_score > 0:
-            gaps[skill] = {
-                "gap_score": gap_score,
-                "current": res_level,
-                "target": jd_level
-            }
-    return gaps
+    def extract(self, text: str) -> Dict[str, int]:
+        results = {}
+        text_lower = text.lower()
+        for skill in self.known_skills:
+            # Simple keyword matching to simulate extraction
+            if skill.lower() in text_lower:
+                context = text_lower[max(0, text_lower.find(skill.lower()) - 20):text_lower.find(skill.lower()) + 20]
+                if any(x in context for x in ["senior", "advanced", "expert", "lead"]):
+                    results[skill] = 3
+                elif any(x in context for x in ["junior", "beginner", "entry", "intern"]):
+                    results[skill] = 1
+                else:
+                    results[skill] = 2
+        return results
 
-def generate_learning_path(gaps: dict, ontology_graph: nx.DiGraph):
-    target_nodes = list(gaps.keys())
+def generate_v2_pathway(
+    resume_skills: Dict[str, int], 
+    jd_skills: Dict[str, int], 
+    course_catalog: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """
+    Generates a personalized learning roadmap grounded in the catalog with status info.
+    """
+    pathway = []
+    scheduled_courses = set()
     
-    # Find subgraph that includes target nodes and all their ancestors (required foundations)
-    needed_nodes = set(target_nodes)
-    for node in target_nodes:
-        if node in ontology_graph:
-            ancestors = nx.ancestors(ontology_graph, node)
-            needed_nodes.update(ancestors)
-            
-    valid_nodes = [n for n in needed_nodes if n in ontology_graph]
-    subgraph = ontology_graph.subgraph(valid_nodes).copy()
+    # Identify target skills based on JD
+    target_skills = list(jd_skills.keys())
     
-    # Topological sort ensures we learn foundations first
-    layers = list(nx.topological_generations(subgraph))
-    roadmap = []
-    
-    for layerIdx, layer in enumerate(layers):
-        stage = []
-        for skill in sorted(list(layer)):
-            # If skill was already met in resume, mark as completed
-            if skill in gaps:
-                stage.append({
-                    "skill": skill,
-                    "target_level": gaps[skill]["target"],
-                    "reasoning": f"Gap detected: {gaps[skill]['gap_score']} levels. Critical for Stage {layerIdx+1} competency.",
-                    "status": "pending"
-                })
-            else:
-                # User already knows this pre-req
-                stage.append({
-                    "skill": skill,
-                    "target_level": 0,
-                    "reasoning": "Standard prerequisite already mastered in profile.",
-                    "status": "completed"
-                })
-        roadmap.append(stage)
+    def add_course_with_deps(skill_name, depth=0):
+        if depth > 10: return # Prevent cycles
         
-    return roadmap
+        # Grounding: Find course in catalog
+        course = next((c for c in course_catalog if c["target_skill"] == skill_name), None)
+        if not course:
+            return
+            
+        if course["course_title"] in scheduled_courses:
+            return
+            
+        # Check prerequisites
+        for prereq in course.get("prerequisites", []):
+            if resume_skills.get(prereq, 0) < 2:
+                add_course_with_deps(prereq, depth + 1)
+        
+        # Determine status
+        is_missing = resume_skills.get(skill_name, 0) < jd_skills.get(skill_name, 1)
+        
+        # Add the course to pathway even if mastered? 
+        # Actually, the user wants to see matched (green) and unmatched (red) in the graph.
+        # We'll include all skills involved in the JD/Catalog for the graph.
+        
+        pathway.append({
+            "step_order": len(pathway) + 1,
+            "course_title": course["course_title"],
+            "target_skill": skill_name,
+            "status": "missing" if is_missing else "matched",
+            "reasoning_trace": f"Skill [{skill_name}] is {'missing' if is_missing else 'already matched'} in the profile. Identified as a {'foundational' if depth > 0 else 'primary'} requirement."
+        })
+        scheduled_courses.add(course["course_title"])
+
+    for skill in target_skills:
+        add_course_with_deps(skill)
+        
+    return pathway

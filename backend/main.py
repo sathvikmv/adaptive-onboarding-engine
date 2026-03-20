@@ -1,11 +1,10 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import networkx as nx
-from typing import Dict
-from graph import build_ontology_graph, analyze_gap, generate_learning_path
+from typing import Dict, List, Any
+from graph import SkillExtractor, generate_v2_pathway, PDFParser
 
-app = FastAPI(title="ElevateAI Adaptive Onboarding")
+app = FastAPI(title="ElevateAI Onboarding Engine V2.1")
 
 app.add_middleware(
     CORSMiddleware,
@@ -15,27 +14,48 @@ app.add_middleware(
 )
 
 class AnalyzeRequest(BaseModel):
-    resume_skills: Dict[str, int]
-    jd_skills: Dict[str, int]
+    resume_text: str
+    jd_text: str
+    course_catalog: List[Dict[str, Any]]
 
 @app.get("/")
 def read_root():
-    return {"status": "ok", "message": "ElevateAI Graph Engine Running"}
+    return {"status": "ok", "message": "ElevateAI Onboarding Engine V2.1 Running"}
+
+@app.post("/api/upload-resume")
+async def upload_resume(file: UploadFile = File(...)):
+    if not file.filename.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
+    
+    content = await file.read()
+    text = PDFParser.extract_text(content)
+    return {"text": text}
 
 @app.post("/api/analyze")
 def analyze(payload: AnalyzeRequest):
-    ontology = build_ontology_graph()
-    gaps = analyze_gap(payload.resume_skills, payload.jd_skills)
+    # 1. Extract all skills mentioned in the catalog
+    known_skills = list(set([c["target_skill"] for c in payload.course_catalog] + 
+                           [p for c in payload.course_catalog for p in c.get("prerequisites", [])]))
     
-    if not gaps:
-        return {"roadmap": [], "message": "No specific gaps. The user is ready for this role."}
-        
-    roadmap = generate_learning_path(gaps, ontology)
+    extractor = SkillExtractor(known_skills)
     
+    # 2. Intelligent Parsing
+    resume_profile = extractor.extract(payload.resume_text)
+    jd_requirements = extractor.extract(payload.jd_text)
+    
+    # 3. Dynamic Mapping & Skill Gap Identification
+    pathway = generate_v2_pathway(resume_profile, jd_requirements, payload.course_catalog)
+    
+    # Strictly adhere to requested format
     response = {
-        "status": "success",
-        "total_gap_score": sum(g["gap_score"] for g in gaps.values()),
-        "roadmap": roadmap
+        "intelligent_parsing": {
+            "resume_profile": list(resume_profile.keys()),
+            "jd_requirements": list(jd_requirements.keys())
+        },
+        "skill_gap_analysis": {
+            "missing_competencies": [s for s, level in jd_requirements.items() if resume_profile.get(s, 0) < level]
+        },
+        "adaptive_learning_pathway": pathway
     }
     return response
 
