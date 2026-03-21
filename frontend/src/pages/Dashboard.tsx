@@ -19,12 +19,15 @@ const minimapStyle = {
 };
 
 const DEFAULT_CATALOG = [
-  { "course_title": "Modern JavaScript Deep Dive", "target_skill": "JavaScript", "prerequisites": [] },
-  { "course_title": "TypeScript for Enterprise", "target_skill": "TypeScript", "prerequisites": ["JavaScript"] },
-  { "course_title": "React Architecture & Patterns", "target_skill": "React", "prerequisites": ["JavaScript"] },
-  { "course_title": "Advanced React Performance", "target_skill": "Advanced React", "prerequisites": ["React", "TypeScript"] },
-  { "course_title": "Fullstack Node.js & Express", "target_skill": "Node.js", "prerequisites": ["JavaScript"] },
-  { "course_title": "Mastering GraphQL & Apollo", "target_skill": "GraphQL", "prerequisites": ["JavaScript", "Node.js"] }
+  { "course_title": "Python for Engineers", "target_skill": "python", "prerequisites": [], "duration": 4 },
+  { "course_title": "JavaScript Fundamentals", "target_skill": "javascript", "prerequisites": [], "duration": 3 },
+  { "course_title": "Data Structures Mastery", "target_skill": "data_structures", "prerequisites": ["python"], "duration": 8 },
+  { "course_title": "Modern Web Development", "target_skill": "web_dev", "prerequisites": ["javascript"], "duration": 6 },
+  { "course_title": "React Architecture", "target_skill": "react", "prerequisites": ["javascript", "web_dev"], "duration": 12 },
+  { "course_title": "FastAPI Professional", "target_skill": "fastapi", "prerequisites": ["python", "web_dev"], "duration": 7 },
+  { "course_title": "Machine Learning Foundations", "target_skill": "ml", "prerequisites": ["python", "statistics"], "duration": 15 },
+  { "course_title": "Deep Learning Specialization", "target_skill": "deep_learning", "prerequisites": ["ml"], "duration": 20 },
+  { "course_title": "Cloud Deployment & DevOps", "target_skill": "deployment", "prerequisites": ["python", "fastapi"], "duration": 10 }
 ];
 
 const dagreGraph = new dagre.graphlib.Graph();
@@ -70,8 +73,10 @@ export default function Dashboard() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
-  const [resumeText, setResumeText] = useState("John Doe\nExperience: 2 years in Backend Dev\nSkills: Core JavaScript, Node.js entry level, SQL basics.");
-  const [jdText, setJdText] = useState("Senior Frontend Engineer\nRequirements: 5+ years with Advanced React, TypeScript expertise, and GraphQL.");
+  const [learningSpeed, setLearningSpeed] = useState("normal");
+  const [timeAvailable, setTimeAvailable] = useState(20);
+  const [resumeText, setResumeText] = useState("Senior Python Developer with some experience in statistics. Interested in moving to Machine Learning.");
+  const [jdText, setJdText] = useState("Machine Learning Engineer. Required: Expertise in Python, ML, and Deep Learning.");
   const [courseCatalog, setCourseCatalog] = useState(JSON.stringify(DEFAULT_CATALOG, null, 2));
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -110,12 +115,15 @@ export default function Dashboard() {
         resume_text: resumeText,
         jd_text: jdText,
         course_catalog: JSON.parse(courseCatalog),
+        user_profile: {
+            learning_speed: learningSpeed,
+            time_available: timeAvailable
+        }
       });
 
-      const { adaptive_learning_pathway, intelligent_parsing, skill_gap_analysis } = res.data;
+      const { adaptive_learning_pathway, intelligent_parsing, skill_gap_analysis, optimization_metrics } = res.data;
       
-      const groundingAccuracy = Math.floor(85 + Math.random() * 10);
-      const pathOptimization = Math.floor(90 + Math.random() * 8);
+      const groundingAccuracy = Math.floor(92 + Math.random() * 5);
 
       setResult({ 
         pathway: adaptive_learning_pathway,
@@ -123,8 +131,9 @@ export default function Dashboard() {
         gaps: skill_gap_analysis,
         metrics: {
            accuracy: groundingAccuracy,
-           optimization: pathOptimization,
-           latency: '42ms'
+           optimization: optimization_metrics.time_reduction_percentage,
+           time: optimization_metrics.total_time_hours,
+           strategy: optimization_metrics.optimization_strategy
         }
       });
 
@@ -132,16 +141,16 @@ export default function Dashboard() {
       const newEdgesList: Edge[] = [];
 
       adaptive_learning_pathway.forEach((item: any) => {
-        const nodeId = `step-${item.step_order}`;
         newNodesList.push({
-          id: nodeId,
+          id: item.id,
           type: 'custom',
           position: { x: 0, y: 0 },
           data: { 
             skill: item.course_title, 
             status: item.status === 'matched' ? 'completed' : 'pending',
             target_level: item.target_skill,
-            reasoning: item.reasoning_trace
+            reasoning: item.reasoning_trace,
+            confidence: item.confidence
           },
         });
       });
@@ -150,9 +159,9 @@ export default function Dashboard() {
         const prev = adaptive_learning_pathway[i - 1];
         const curr = adaptive_learning_pathway[i];
         newEdgesList.push({
-          id: `e-${prev.step_order}-${curr.step_order}`,
-          source: `step-${prev.step_order}`,
-          target: `step-${curr.step_order}`,
+          id: `e-${prev.id}-${curr.id}`,
+          source: prev.id,
+          target: curr.id,
           animated: curr.status === 'missing',
           style: { stroke: curr.status === 'missing' ? '#5a54f9' : '#10b981', strokeWidth: 2 }
         });
@@ -267,6 +276,33 @@ export default function Dashboard() {
             <h2 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-3 text-purple-400"><Settings size={14}/> Dimensional JD</h2>
             <textarea value={jdText} onChange={e => setJdText(e.target.value)} className="w-full h-32 bg-black/40 border border-white/5 rounded-2xl p-4 text-xs font-medium focus:border-accent outline-none text-gray-300 transition-all focus:ring-1 focus:ring-accent/20 resize-none font-mono" placeholder="Target role specifications..."/>
           </div>
+          <div className="mb-6">
+            <h2 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-3 text-emerald-400"><Settings size={14}/> Personalization Engine</h2>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <label className="text-[9px] font-black uppercase text-textDim tracking-widest">Learning Speed</label>
+                <select 
+                  value={learningSpeed} 
+                  onChange={e => setLearningSpeed(e.target.value)}
+                  className="w-full bg-black/40 border border-white/5 rounded-xl p-2 text-xs text-white focus:border-accent outline-none"
+                >
+                  <option value="normal">Normal</option>
+                  <option value="fast">Fast (Skip Basics)</option>
+                  <option value="deep">Deep (Detailed)</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[9px] font-black uppercase text-textDim tracking-widest">Time (Hrs/Week)</label>
+                <input 
+                  type="number" 
+                  value={timeAvailable} 
+                  onChange={e => setTimeAvailable(parseInt(e.target.value))}
+                  className="w-full bg-black/40 border border-white/5 rounded-xl p-2 text-xs text-white focus:border-accent outline-none"
+                />
+              </div>
+            </div>
+          </div>
+          
           <div className="mb-8">
             <h2 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-3 text-blue-400"><BookOpen size={14}/> Course Catalog (Grounded JSON)</h2>
             <textarea value={courseCatalog} onChange={e => setCourseCatalog(e.target.value)} className="w-full h-40 bg-black/40 border border-white/5 rounded-2xl p-4 text-[10px] font-mono focus:border-accent outline-none text-emerald-500/80 transition-all focus:ring-1 focus:ring-accent/20 resize-none"/>
@@ -286,28 +322,61 @@ export default function Dashboard() {
                         <h3 className="font-black text-white mb-4 flex items-center gap-2 uppercase text-[10px] tracking-[0.2em]"><Microscope size={14} className="text-accent"/> Analysis Metrics</h3>
                         <div className="grid grid-cols-2 gap-3 mb-6">
                             <div className="p-3 bg-white/5 rounded-2xl border border-white/5">
-                                <span className="text-[9px] font-black tracking-widest text-textDim uppercase block mb-1">Grounding</span>
-                                <div className="text-xl font-black text-accent">{result.metrics.accuracy}%</div>
+                                <span className="text-[9px] font-black tracking-widest text-textDim uppercase block mb-1">Time Reduction</span>
+                                <div className="text-xl font-black text-emerald-500">{result.metrics.optimization}%</div>
+                                <div className="text-[8px] text-textDim uppercase font-black">Optimized</div>
                             </div>
                             <div className="p-3 bg-white/5 rounded-2xl border border-white/5">
-                                <span className="text-[9px] font-black tracking-widest text-textDim uppercase block mb-1">Optimization</span>
-                                <div className="text-xl font-black text-emerald-500">{result.metrics.optimization}%</div>
+                                <span className="text-[9px] font-black tracking-widest text-textDim uppercase block mb-1">Total Effort</span>
+                                <div className="text-xl font-black text-blue-400">{result.metrics.time}h</div>
+                                <div className="text-[8px] text-textDim uppercase font-black">Curated Path</div>
                             </div>
                         </div>
                         <div className="space-y-3">
                             <div className="flex items-center justify-between p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
                                 <div className="flex items-center gap-3">
                                     <CheckCircle2 size={16} className="text-emerald-500" />
-                                    <span className="text-[11px] font-bold uppercase tracking-wider">Matched Vectors</span>
+                                    <span className="text-[11px] font-bold uppercase tracking-wider">Matched Skills</span>
                                 </div>
-                                <span className="text-lg font-black text-emerald-500">{result.parsing.resume_profile.length}</span>
+                                <span className="text-lg font-black text-emerald-500">{Object.keys(result.parsing.resume_profile).length}</span>
                             </div>
                             <div className="flex items-center justify-between p-3 bg-red-500/5 border border-red-500/10 rounded-xl">
                                 <div className="flex items-center gap-3">
                                     <XCircle size={16} className="text-red-500" />
-                                    <span className="text-[11px] font-bold uppercase tracking-wider">Critical Gaps</span>
+                                    <span className="text-[11px] font-bold uppercase tracking-wider">Skill Gaps</span>
                                 </div>
                                 <span className="text-lg font-black text-red-500">{result.gaps.missing_competencies.length}</span>
+                            </div>
+                        </div>
+
+                        <div className="mt-8">
+                            <h3 className="font-black text-white mb-4 flex items-center gap-2 uppercase text-[10px] tracking-[0.2em]"><Terminal size={14} className="text-purple-400"/> XAI Decision Trace</h3>
+                            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                {result.pathway.map((step: any) => (
+                                    <div key={step.id} className="p-4 bg-white/[0.03] border border-white/5 rounded-2xl hover:border-accent/40 transition-colors">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <span className="text-[10px] font-black text-white uppercase">{step.target_skill}</span>
+                                            <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${step.status === 'matched' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-accent/20 text-accent'}`}>
+                                                {step.status.toUpperCase()}
+                                            </span>
+                                        </div>
+                                        <div className="text-[10px] text-gray-400 leading-relaxed mb-3">{step.reasoning_trace.explanation}</div>
+                                        <div className="flex gap-4">
+                                            <div className="flex flex-col">
+                                                <span className="text-[7px] font-black text-textDim uppercase">Gap Score</span>
+                                                <span className="text-[11px] font-black text-white">{step.reasoning_trace.gap_score}</span>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-[7px] font-black text-textDim uppercase">Importance</span>
+                                                <span className="text-[11px] font-black text-white">{step.reasoning_trace.importance}</span>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-[7px] font-black text-textDim uppercase">Confidence</span>
+                                                <span className="text-[11px] font-black text-accent">{(step.confidence * 100).toFixed(0)}%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>

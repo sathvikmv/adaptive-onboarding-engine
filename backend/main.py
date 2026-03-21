@@ -17,10 +17,11 @@ class AnalyzeRequest(BaseModel):
     resume_text: str
     jd_text: str
     course_catalog: List[Dict[str, Any]]
+    user_profile: Dict[str, Any] = None
 
 @app.get("/")
 def read_root():
-    return {"status": "ok", "message": "ElevateAI Onboarding Engine V2.1 Running"}
+    return {"status": "ok", "message": "ElevateAI Onboarding Engine V3.0 (Winning Package) Running"}
 
 @app.post("/api/upload-resume")
 async def upload_resume(file: UploadFile = File(...)):
@@ -39,23 +40,25 @@ def analyze(payload: AnalyzeRequest):
     
     extractor = SkillExtractor(known_skills)
     
-    # 2. Intelligent Parsing
+    # 2. Intelligent Parsing (LLM-Simulated)
     resume_profile = extractor.extract(payload.resume_text)
     jd_requirements = extractor.extract(payload.jd_text)
     
-    # 3. Dynamic Mapping & Skill Gap Identification
-    pathway = generate_v2_pathway(resume_profile, jd_requirements, payload.course_catalog)
+    # 3. Dynamic Mapping & Skill Gap Identification (Optimized)
+    result = generate_v2_pathway(resume_profile, jd_requirements, payload.course_catalog, payload.user_profile)
     
-    # Strictly adhere to requested format
+    # Build XAI Trace Dashboard data
     response = {
         "intelligent_parsing": {
-            "resume_profile": list(resume_profile.keys()),
-            "jd_requirements": list(jd_requirements.keys())
+            "resume_profile": resume_profile,
+            "jd_requirements": jd_requirements
         },
         "skill_gap_analysis": {
-            "missing_competencies": [s for s, level in jd_requirements.items() if resume_profile.get(s, 0) < level]
+            "missing_competencies": [s for s, level in jd_requirements.items() if resume_profile.get(s, 0) < level],
+            "confidence_scores": {s: (resume_profile.get(s, 0) / (jd_requirements.get(s, 2) or 2)) for s in jd_requirements}
         },
-        "adaptive_learning_pathway": pathway
+        "adaptive_learning_pathway": result["steps"],
+        "optimization_metrics": result["metrics"]
     }
     return response
 
