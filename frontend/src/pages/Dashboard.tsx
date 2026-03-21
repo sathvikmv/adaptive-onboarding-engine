@@ -88,8 +88,10 @@ export default function Dashboard() {
     const formData = new FormData();
     formData.append('file', file);
 
+    const API_BASE = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+
     try {
-      const res = await axios.post('http://localhost:8000/api/upload-resume', formData);
+      const res = await axios.post(`${API_BASE}/api/upload-resume`, formData);
       setResumeText(res.data.text);
       setTraceLogs(prev => [...prev, "SUCC: PDF Parsing phase completed with 0.98 confidence."]);
     } catch (e) {
@@ -110,8 +112,10 @@ export default function Dashboard() {
         "PROC: Grounding with Kursus Catalog JSON data..."
     ]);
 
+    const API_BASE = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+
     try {
-      const res = await axios.post('http://localhost:8000/api/analyze', {
+      const res = await axios.post(`${API_BASE}/api/analyze`, {
         resume_text: resumeText,
         jd_text: jdText,
         course_catalog: JSON.parse(courseCatalog),

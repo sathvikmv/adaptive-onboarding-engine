@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+networkx
+pydantic
+pypdf
+python-multipart
